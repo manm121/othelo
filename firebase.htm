@@ -1,0 +1,35 @@
+<! DOCTYPE html>
+<html>
+	<head>
+		<script src='https://cdn.firebase.com/js/client/2.2.1/firebase.js'></script>
+	    <script src='js/jquery-2.1.4.min.js'></script>
+	</head>
+	<body>
+		<input type="text" id="nameInput" placeholder="Name" >
+		<input type="text" id="messageInput" placeholder="Message" > 
+		<script>
+			var myDataRef = new Firebase('https://fjmj30cevoc.firebaseio-demo.com/');
+			$('#messageInput').keypress(function(e){
+
+				if(e.keyCode == 13){
+
+					var name = $('#nameInput').val();
+					var msg = $('#messageInput').val();
+					myDataRef.push({name:name, text: msg});					
+				
+					$('#messageInput').val('');
+				}
+			});
+
+			myDataRef.on('child_added', function(snapshot){
+
+					var obj = snapshot.val();
+					if(!obj.text)return;
+					$('#chatList').append($('<li>'+ obj.name +' says " <i>' + obj.text+'" </i><li>'));
+			});
+		</script>
+		
+		<ul id="chatList"></ul>
+
+	</body>
+</html>

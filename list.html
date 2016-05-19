@@ -1,0 +1,160 @@
+<html>
+	<head>
+		<link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>	
+		<script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/md5.js"></script>
+		<script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/aes.js"></script>
+	</head>
+	<body>
+		<div class="container-fluid">
+			<div class="row-fluid">
+				<div class="col-xs-12 col-md-4">
+					<div id="container"></div>
+				</div>
+		    </div>
+		</div>
+
+		<script>
+		var handle = {};
+
+		 (function($){
+
+		 	var self = this;
+
+		 	self.activePlayers = [];
+
+		 	var init = function(){
+
+		 		var p1 = new Player('manish');
+		 		var p2 = new Player('niraj');
+
+		 		handle.players =[p1, p2];
+		 		handle.store = new dbStore();
+		 		handle.dataSource = new dataSource();
+		 	};
+
+
+		 	self.util = new util();
+		 	self.store = new dbStore();
+
+		 	function dbStore(){
+
+		 		var me = this;
+
+		 		me.checkSupport = function(){
+
+		 			if(typeof(Storage)==undefined){
+		 				throw Error("Sorry! Storage is not supported on this browser. Cannot continue!");
+		 			}
+		 		};
+
+		 		me.read = function(key){
+
+		 			me.checkSupport();
+		 			return localStorage.getItem(key);
+		 		};
+
+		 		me.save = function(key, data){
+
+		 			me.checkSupport();
+
+		 			localStorage.setItem(key, data);
+		 		};
+
+		 		me.remove = function(key){
+
+		 			me.checkSupport();
+		 			localStorage.removeItem(key);
+		 		};
+		 	};
+
+		 	function Player(name, symbol){
+
+				this.name = name;
+				this.symbol = symbol;
+				this.highScore = 0;
+				this.guid = self.util.getGuid();
+			};
+
+			function dataSource(){
+
+				var me = this;
+
+				me.players = [];
+ 
+				me.add = function(player){
+
+					//check if it is not an existing player
+					var _p = me.get(player.guid);
+					if(!self.util.isObjectEmpty(_p)){
+						throw Error("Player already registered!");
+					}
+					
+					var players = JSON.parse(self.store.read('players'));
+
+					if(self.util.isObjectEmpty(players))
+						players = [];
+
+					players[player.guid] = player;
+
+					var str = JSON.stringify(players);
+
+					me.players = players;
+
+					me.saveToDb();
+				};
+
+				me.get = function(guid){
+ 	
+ 					var players = self.store.read('players');
+ 					var json = JSON.parse(players);
+ 					return json[guid];
+				};
+
+				me.getAll = function(){
+
+					var players = JSON.parse(self.store.read('players'));
+					return players;
+				};
+
+				me.saveToDb = function(){
+
+					var str = JSON.stringify(me.players);
+					self.store.save('players', str);
+				};
+			};
+
+			function util(){
+
+				var me = this;
+
+				me.getGuid =  function() {
+								  function s4() {
+								    return Math.floor((1 + Math.random()) * 0x10000)
+								      .toString(16)
+								      .substring(1);
+								  }
+								  return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
+								    s4() + '-' + s4() + s4() + s4();
+							};
+
+				me.isObjectEmpty = function(val){
+
+					if(val===undefined || val===null || val.length===0){
+						return true;
+					}
+
+					return false;
+				};
+
+			};
+
+			init();
+
+		 }(jQuery));
+
+		</script>
+	</body>
+</html>

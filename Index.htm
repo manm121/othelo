@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+
+<html>
+	<head>
+		<title>Angular App</title>
+		<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+		<link rel="stylesheet" type="text/css" href="css/custom.css">
+
+		<script type="text/javascript" src="js/jquery-2.1.4.min.js"></script>
+		<script type="text/javascript" src="js/angular.min.js"></script>
+		<script type="text/javascript" src="js/bootstrap.min.js"></script>
+		<script type="text/javascript" src="js/controller.js"></script>
+	</head>
+	<body ng-app="loginApp">
+		<div class="container" ng-controller="LoginController as loginProvider">
+			<form name="loginForm" class="form-horizontal" novalidate ng-submit="loginProvider.submit(user)">
+				<div class="form-group">
+					<label for="txtName" >Name</label>
+					<input type="text" id="txtName" ng-model="user.name" name="name" class="form-control" required>
+					<div ng-show="loginForm.$submitted || loginForm.name.$touched">
+						<div ng-show="loginForm.name.$error.required" >Name cannot be left empty</div>
+					</div>
+				</div>
+				<div class="form-group">
+					<label for="txtEmail" >Email</label>
+					<input type="email" id="txtEmail" ng-model="user.email" name="email"  class="form-control" required>
+					<div ng-show="loginForm.$submitted || loginForm.email.$touched">
+						<div ng-show="loginForm.email.$error.required" >Email cannot be left empty</div>
+						<div ng-show="loginForm.email.$error.email" >Please provide a valid email address</div>
+					</div>
+				</div>
+				<div class="form-group">
+					<label for="txtPassword" >Password</label>
+					<input type="password" id="txtPassword" ng-model="user.password" name="password" class="form-control" required>
+					<div ng-show="loginForm.$submitted || loginForm.password.$touched">
+						<div ng-show="loginForm.password.$error.required" >Password cannot be left empty</div>
+					</div>
+				</div>
+				<div class="form-group">
+					<label for="txtConfirmPwd" >Confirm Password</label>
+					<input type="password" id="txtConfirmPwd" ng-model="user.password_verify" name="confirmPwd" class="form-control" required data-password-verify="user.password">
+					<div ng-show="loginForm.confirmPwd.$error.passwordVerify">
+						Fields are not equal
+					</div>
+				</div>
+				<div class="form-group">
+					<input type="submit" ng-disabled="loginForm.$invalid || !loginForm.$dirty" class="btn btn-success" >
+					<input type="button" class="btn btn-warning" ng-click="reset(user)" value="Reset">
+				</div>
+			</form>
+			
+		</div>
+	</body>
+</html>
