@@ -3,22 +3,21 @@
   color: grey;
 }
 .cell{
-	background:#ccc;
+	background:#96A796;
 }
 
 .cell-black, .cell-white{
-	background-image:url('../img/sprite.png');
-	background-repeat: no-repeat;
-	background-size: 195%;
-	background-color:#ccc;
+  background-repeat: no-repeat;
+  /*background-color: #ccc;*/
+  background-size:40%;
 }
 
 .cell-black{
-	background-position: 34px 0;
+  background-image:url('../img/black.png');
 }
 
 .cell-white{
-	background-position: -158px 0;
+  background-image:url('../img/white.png');
 }
 
 .stats .cell-white{

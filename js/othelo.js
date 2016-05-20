@@ -15,10 +15,14 @@ function othelo(options){
 		self.exception.error('Could not find container');
 	}
 
+	self.rows = 6;
+	self.cols = 6;
 	self.grid = {};
 	self.move = 0;
 	self.container = $(self.utility.ensureHash(self.id));
 	self.dampContainer ="";
+	self.allCells = [];
+	self.score = {};
 
 	self.createGrid = function(rows, cols){
 
@@ -51,20 +55,23 @@ function othelo(options){
 					td.attr('id', 'col'+row.toString() + col.toString());
 					tr.append(td);
 
-					td.css({'height':targetHeight, 'width':targetWidth});
+					var bp = (targetWidth * .55) + 'px ' + (targetHeight * .15) + 'px' ;
+					td.css({'height':targetHeight, 'width':targetWidth,'background-position':bp});
 				}
 				tbl.append(tr);
 			}
 			return tbl;
 	};
 
-
 	self.init = function(){
 
 		self.container.html('');
-		var grid = self.createGrid(6,6);
+		var grid = self.createGrid(self.rows, self.cols);
 		grid.addClass('table table-bordered');
 		self.container.append(grid);
+
+		//restore all cells
+		self.allCells = $('table tr td', self.container);
 
 		//add a damp
 		var damp = $('<span><span>');
@@ -77,7 +84,10 @@ function othelo(options){
 
 	self.standardMarks = function(){
 
-		var stdArr = [45, 44, 54, 55];
+		var meanPosition = parseInt(self.rows/2 + '' + self.cols/2);
+
+		var stdArr = [meanPosition, meanPosition-10, meanPosition-11, meanPosition-1];
+		//var stdArr = [45, 44, 54, 55];
 		while(stdArr.length > 0){
 
 			var item = stdArr.pop();
@@ -236,7 +246,6 @@ function othelo(options){
 	//register cell clicks
 	self.container.on('click','table tr td', function(e){
 
-		console.log(self.isBUSY);
 		if(self.isBUSY===true) return;
 
 		self.isBUSY = true;
@@ -260,6 +269,29 @@ function othelo(options){
 			self.isBUSY = false;
 		});
 	}
+	self.evaluate = function(cell){
+
+		var id = cell.attr('id');
+		var stamp = id.replace('col','');
+		var row = parseInt(stamp / 10);
+		var col = parseInt(stamp % 10);
+
+		//already claimed
+		var cc  = self.grid[id];
+		if(cc==0 || cc==1){
+			return false;
+		}
+
+		var isGood = false;
+		var resultSet = self.movesResultSet(row, col, id);
+		$.each(resultSet, function(idx, elem){
+			if(elem.isGood){
+				if(!isGood) isGood = true;
+			}
+		});
+		return isGood;
+	};
+
 	self.mark = function(cell, doNotValidate){
 
 		var id = cell.attr('id');
@@ -293,16 +325,22 @@ function othelo(options){
 		}
 
 		if(isGood || doNotValidate){
-
 			self.grid[id] = self.move;
 			self.applyGraphics(cell, self.move);
 			self.move = 1 - self.move;
 			self.updatePlayerStats();
+			cell.data('marked',true);
 		}else{
 
 			self.isBUSY = false;
 			self.notification.warning(self.messages.invalidMove)
 		}
+
+		//see if game is Finished
+		if(self.validity.noNewMoves()){
+				self.validity.declareWinner();
+		}
+
 		return isGood;
 	};
 
@@ -313,7 +351,7 @@ function othelo(options){
 
 	self.colorSwatch = function(move){
 
-		return move==0?'red':'green';
+		return move==0?'white':'white';
 	};
 
 	self.movesResultSet = function(row, col, id){
@@ -351,7 +389,8 @@ function othelo(options){
 		var tbl = $('#playerStats table');
 
 		//whose move?
-		self.applyGraphics($('tr:eq(0) td:eq(1)', tbl), self.move)
+		$('tr:eq(0) td:eq(1)', tbl).text(self.move==0?'Yours':'CPU');
+		//self.applyGraphics($('tr:eq(0) td:eq(1)', tbl), self.move)
 
 		var p1 =0, p2 = 0;
 		for(var o in self.grid){
@@ -359,9 +398,10 @@ function othelo(options){
 			var val = self.grid[o];
 
 			if(val == 0) p1++;
-
 			else if(val == 1) p2++;
 		}
+
+		self.score = {'p1':p1, 'p2':p2};
 
 		//player 1
 		$('tr:eq(1) td:eq(0)', tbl).css('backgroundColor', self.colorSwatch(0));
@@ -386,7 +426,6 @@ function othelo(options){
 			if(self.utility.isObjectEmpty(cells))return;
 
 			$.each(cells, function(idx, elem){
-
 				self.grid[elem.id] = self.move;
 				self.applyGraphics(elem.cell, self.move);
 			});
@@ -649,6 +688,41 @@ function othelo(options){
 
 			return {'isGood':doPaint, cells:trackedCells};
 		};
+
+		me.noNewMoves = function(){
+
+			var noMovesLeft = false;
+
+			//see if no empty cell left
+			for (var i = 0; i < self.allCells.length; i++) {
+
+						if(!$(self.allCells[i]).data('marked')){
+							 noMovesLeft = false;
+							 break;
+						};
+
+						noMovesLeft = true;
+			}
+
+			//since there are empty cells available, see if no valid move left for the current player
+			if(!noMovesLeft){
+
+				var emptyCells = self.allCells.filter(function(){ return !$(this).data('marked')});
+				for (var i = 0; i < emptyCells.length; i++) {
+
+						var isGood = self.evaluate(emptyCells[i]);
+						if(isGood){ noMovesLeft = false; break;}
+						noMovesLeft = true;
+				};
+			};
+			return noMovesLeft;
+		};
+
+		me.declareWinner = function(e){
+
+				var msg = [(self.score.p1 > self.score.p2)?'You':'CPU',' won!'].join('');
+				me.notification.success(msg, 10000);
+		};
 	};
 
 	self.validity = new validity();
@@ -810,6 +884,8 @@ function notification(options){
 function messages(){
 
 	var me = this;
+
+	me.won = 'Game Finished. {0} won';
 
 	me.invalidMove = '<strong>Warning!</strong> You need to be more wise than that! Click a cell which might yield atleast a score of plus one!';
 
