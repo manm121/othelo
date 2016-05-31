@@ -102,7 +102,6 @@ function othelo(options){
 
 		var count=0;
 		while(count++<8){
-
 			var _rand = self.utility.random(0, 99);
 			var i = parseInt(_rand/10);
 			var j = parseInt(_rand%10);
@@ -125,122 +124,67 @@ function othelo(options){
 		//merge
 		me.settings = $.extend(me.settings, options);
 
-		me.isMarkable = function(row, col, id){
+		me.writableCellInfo = function(id){
 
-			var isGood = false;
+			var rs = {};
+			var cell = self.validity.getCell(id);
+
+			//ideally..it shd never happen
+			if($('#' + id).length == 0) return false;
+
 			var val = self.grid[id];
-			if(val === self.move || val === 1- self.move) return isGood;
-			if($('#' + id).length == 0) return isGood;
+			if(val === self.move || val === 1- self.move) return rs;
 
-			var resultSet = self.movesResultSet(row, col, id);
+			var resultSet = self.movesResultSet(cell.r, cell.c, id);
 			for(var o in resultSet){
-
-				var _s = resultSet[o];
-				if(_s.isGood){
-					isGood = true;
+				if(resultSet[o].isGood){
+					rs = resultSet;
 					break;
 				}
 			}
 
-			return isGood;
+			return rs;
 		};
+
 		//lookout for the locations where  user cells are present
 		me.makeMove = function(lastCell){
 
+			var rs = [];
 			for(var o in self.grid){
 
-				if(self.move!==self.grid[o]){//target those locations where oponent moves are present
+					if(self.move === self.grid[o]) continue; //opponent locations only
 
-					//begin scout all directions one by one ..
+					//begin scouting all directions of a given opponent cell one by one ..
+					var val = self.validity.getCell(o.toString());
 
-					var val = o.toString().replace('col','');
-					var i = parseInt(val / 10);
-					var j = parseInt(val % 10);
-					var isGood = false;
+					for (var i = 0; i < self.validity.directionMatrix.length; i++) {
+							var d = self.validity.directionMatrix[i];
+							var newId = d.delta(val.r, val.c);
+							rs.push({'txt':d.direction, 'o': me.writableCellInfo(newId),'id':newId});
+					};
+			}
 
-					//scout left
-					var row = i;
-					var col = j - 1;
-					var id = 'col' + row + col;
-					isGood = me.isMarkable(row, col, id);
-					if(isGood){
-						self.mark($('#' + id));
-						break;
-					}
+			//max scoring move
+			var optimized = [], p = 0, l = 0, t;
+			$.each(rs, function(i,x){
+					if(x.o instanceof Array){
+						  p = 0;
+							$.each(x.o, function(j, y){
+									if(y.isGood){
+											p += y.cells.length;
+											if(p > l){ l = p; t = x;}
+									}
+							});
+					};
+			});
 
-					//scout right
-					row = i;
-					col = j + 1;
-					id = 'col' + row + col;
-					isGood = me.isMarkable(row, col, id);
-					if(isGood){
-						self.mark($('#' + id));
-						break;
-					}
-
-					//scout up
-					row = i - 1;
-					col = j;
-					id='col' + row + col;
-					isGood = me.isMarkable(row, col, id);
-					if(isGood){
-						self.mark($('#' + id));
-						break;
-					}
-
-					//scout down
-					row == i + 1;
-					col = j;
-					id= 'col' + row + col;
-					isGood = me.isMarkable(row, col, id);
-					if(isGood){
-						self.mark($('#' + id));
-						break;
-					}
-
-					//scout north east
-					row == i - 1;
-					col = j + 1;
-					id= 'col' + row + col;
-					isGood = me.isMarkable(row, col, id);
-					if(isGood){
-						self.mark($('#' + id));
-						break;
-					}
-
-					//scout north west
-					row == i - 1;
-					col = j - 1;
-					id= 'col' + row + col;
-					isGood = me.isMarkable(row, col, id);
-					if(isGood){
-						self.mark($('#' + id));
-						break;
-					}
-
-					//scout south east
-					row == i + 1;
-					col = j + 1;
-					id= 'col' + row + col;
-					isGood = me.isMarkable(row, col, id);
-					if(isGood){
-						self.mark($('#' + id));
-						break;
-					}
-
-					//scout south west
-					row == i + 1;
-					col = j - 1;
-					id= 'col' + row + col;
-					isGood = me.isMarkable(row, col, id);
-					if(isGood){
-						self.mark($('#' + id));
-						break;
-					}
-				}
+			if(t){
+						self.mark($('#'+t.id));
+			} else{
+				self.declareWinner();
 			};
-		};
 
+		}
 	};
 
 	//register cell clicks
@@ -257,6 +201,8 @@ function othelo(options){
 			var _ms = 7000;
 			self.notification.info(self.messages.cpuThinking, _ms);
 			self.delayExecute(_ms, self.cpu.makeMove);
+		}else{
+			self.isBUSY = false;
 		}
 	});
 
@@ -269,31 +215,18 @@ function othelo(options){
 			self.isBUSY = false;
 		});
 	}
+
 	self.evaluate = function(cell){
 
 		var id = cell.attr('id');
-		var stamp = id.replace('col','');
-		var row = parseInt(stamp / 10);
-		var col = parseInt(stamp % 10);
+		var cell = self.validity.getCell(id);
+		var row = cell.r;
+		var col = cell.c;
 
-		//already claimed
-		var cc  = self.grid[id];
-		if(cc==0 || cc==1){
-			return false;
-		}
-
-		var isGood = false;
-		var resultSet = self.movesResultSet(row, col, id);
-		$.each(resultSet, function(idx, elem){
-			if(elem.isGood){
-				if(!isGood) isGood = true;
-			}
-		});
-		return isGood;
+		self.validity.scoutDirections(row, col, id);
 	};
 
 	self.mark = function(cell, doNotValidate){
-
 		var id = cell.attr('id');
 		var stamp = id.replace('col','');
 		var row = parseInt(stamp / 10);
@@ -356,32 +289,21 @@ function othelo(options){
 
 	self.movesResultSet = function(row, col, id){
 
-		var resultSet = {};
-		//check horizontal forward
-		resultSet['c1'] = self.validity.horizontalForward(row, col, id);
-
-		//check horizontal backward
-		resultSet['c2'] = self.validity.horizontalBackward(row, col, id);
-
-		//check vertical forward
-		resultSet['c3'] = self.validity.verticalForward(row, col, id);
-
-		//check vertical backward
-		resultSet['c4'] = self.validity.verticalBackward(row, col, id);
-
-		//check north east
-		resultSet['c5'] = self.validity.diagNorthEast(row, col, id);
-
-		//check north west
-		resultSet['c6'] = self.validity.diagNorthWest(row, col, id);
-
-		//check south east
-		resultSet['c7'] = self.validity.diagSouthEast(row, col, id);
-
-		//check south west
-		resultSet['c8'] = self.validity.diagSouthWest(row, col, id);
-
+		var resultSet = self.validity.scoutDirections(row, col, id);
 		return resultSet;
+	};
+
+	self.getScore = function(){
+		var p1 =0, p2 = 0;
+		for(var o in self.grid){
+
+			var val = self.grid[o];
+
+			if(val == 0) p1++;
+			else if(val == 1) p2++;
+		}
+
+		return {'p1':p1, 'p2':p2};
 	};
 
 	self.updatePlayerStats = function(){
@@ -392,24 +314,16 @@ function othelo(options){
 		$('tr:eq(0) td:eq(1)', tbl).text(self.move==0?'Yours':'CPU');
 		//self.applyGraphics($('tr:eq(0) td:eq(1)', tbl), self.move)
 
-		var p1 =0, p2 = 0;
-		for(var o in self.grid){
-
-			var val = self.grid[o];
-
-			if(val == 0) p1++;
-			else if(val == 1) p2++;
-		}
-
-		self.score = {'p1':p1, 'p2':p2};
+		//update score
+		self.score = self.getScore();
 
 		//player 1
 		$('tr:eq(1) td:eq(0)', tbl).css('backgroundColor', self.colorSwatch(0));
-		$('tr:eq(1) td:eq(1)', tbl).text(p1);
+		$('tr:eq(1) td:eq(1)', tbl).text(self.score.p1);
 
 		//player 2
 		$('tr:eq(2) td:eq(0)', tbl).css('backgroundColor', self.colorSwatch(1));
-		$('tr:eq(2) td:eq(1)', tbl).text(p2);
+		$('tr:eq(2) td:eq(1)', tbl).text(self.score.p2);
 	};
 
 	self.applyGraphics = function(cell, move){
@@ -431,297 +345,89 @@ function othelo(options){
 			});
 		};
 
-		me.horizontalForward = function(i, j, id){
+		me.directionMatrix = [
+			{'direction':'HF', 'boundary':function(i,j){ return j < self.cols; }, 'delta':function(i,j){ return 'col' + i + ++j;}},
+			{'direction':'HB', 'boundary':function(i,j){return j > 0;}, 'delta':function(i,j){ return 'col' + i + --j;}},
+			{'direction':'VF', 'boundary':function(i,j){return i < self.rows;}, 'delta':function(i,j){ return 'col' + ++i + j;}},
+			{'direction':'VB', 'boundary':function(i,j){return  i > 0}, 'delta':function(i,j){ return 'col' + --i + j;}},
+			{'direction':'DNE', 'boundary':function(i,j){return i > 0 && j < self.cols;}, 'delta':function(i,j){ return 'col' + --i + ++j;}},
+			{'direction':'DNW', 'boundary':function(i,j){return i >0 && j > 0;}, 'delta':function(i,j){ return 'col' + --i + --j;}},
+			{'direction':'DSE', 'boundary':function(i,j){return i < self.rows && j < self.cols;}, 'delta':function(i,j){ return 'col' + ++i + ++j;}},
+			{'direction':'DSW', 'boundary':function(i,j){return i < self.rows && j > 0 }, 'delta':function(i,j){ return 'col' + ++i + --j;}},
+		];
 
-			var currentSymbol = self.move;
-			var counter = 0;
-			var doPaint = false;
-			var trackedCells = [];
-			while(i < 10 && j < 10){
+		me.getCell = function(id){
 
-				var newId = 'col' + i + ++j;
-
-				var _sym = self.grid[newId];
-
-				if(_sym!=currentSymbol && _sym!==undefined){
-
-					trackedCells.push({'cell':$('#'+newId), 'id':newId});
-				}
-				else if(counter==0)
-					break;
-
-				if(_sym == currentSymbol && _sym!==undefined && counter != 0){
-					doPaint = true;
-					break;
-				}
-				counter++;
-			};
-
-			//if(doPaint && !self.utility.isObjectEmpty(trackedCells))
-			//	me.paint(trackedCells);
-
-			return {'isGood':doPaint, cells:trackedCells};
+			var stamp = id.replace('col','');
+		  var row = parseInt(stamp / 10);
+		  var col = parseInt(stamp % 10);
+			return {'r':row, 'c':col};
 		};
 
-		me.horizontalBackward = function(i, j, id){
+		me.scoutDirections = function(i, j, id){
 
-			var currentSymbol = self.move;
-			var counter = 0;
-			var doPaint = false;
-			var trackedCells = [];
+		  var currentSymbol = self.move;
+		  var resultSet = [];
+		  for (var idx = 0; idx < me.directionMatrix.length; idx++) {
 
-			while(j > 0){
+				  //copy the values
+		      var ix = i, jx = j;
 
-				var newId = 'col' + i + --j;
+		      var counter = 0;
+		      var d = me.directionMatrix[idx];
+		      var doPaint = false;
+		      var trackedCells = [];
 
-				var _sym = self.grid[newId];
-				if(_sym!=currentSymbol && _sym!==undefined){
+		      while(d.boundary(ix,jx)){
 
-					trackedCells.push({'cell':$('#'+newId), 'id':newId});
-				}
-				else if(counter==0)
-					break;
+							var newId = d.delta(ix,jx);
 
-				if(_sym==currentSymbol && _sym!==undefined && counter!=0) {
-					doPaint = true;
-					break;
-				}
-				counter++;
-			};
+							//update the values just incremented above, to keep moving..
+							var uv = me.getCell(newId);
+							ix = uv.r; jx = uv.c;
 
-			//if(doPaint && !self.utility.isObjectEmpty(trackedCells))
-			//	me.paint(trackedCells);
+		          var _sym = self.grid[newId];
+		          if(_sym != currentSymbol && _sym != undefined){
+		            trackedCells.push({'cell':$('#'+newId), 'id':newId});
+		          }
+		          else if(counter == 0)
+		            break;
 
-			return {'isGood':doPaint, cells:trackedCells};
-		};
+		          if(_sym == currentSymbol && _sym != undefined && counter != 0){
+		            doPaint = true;
+		            break;
+		          }
+		          counter++;
+		      }
 
-		me.verticalForward = function(i, j, id){
+		      resultSet.push({'cells':trackedCells, 'isGood':doPaint, 'd':d.direction});
+		  }
 
-			var currentSymbol = self.move;
-			var counter = 0;
-			var doPaint = false;
-			var trackedCells = [];
-
-			while(i < 10){
-
-				var newId = 'col' + ++i + j;
-
-				var _sym = self.grid[newId];
-				if(_sym!=currentSymbol && _sym!==undefined){
-
-					trackedCells.push({'cell':$('#'+newId), 'id':newId});
-				}
-				else if(counter==0)
-					break;
-
-				if(_sym==currentSymbol && _sym!==undefined && counter!=0){
-					doPaint = true;
-					break;
-				}
-				counter++;
-			};
-
-			//if(doPaint && !self.utility.isObjectEmpty(trackedCells))
-			//	me.paint(trackedCells);
-
-			return {'isGood':doPaint, cells:trackedCells};
-		};
-
-		me.verticalBackward = function(i, j, id){
-
-			var currentSymbol = self.move;
-			var counter = 0;
-			var doPaint = false;
-			var trackedCells = [];
-
-			while(i > 0){
-
-				var newId = 'col' + --i + j;
-
-				var _sym = self.grid[newId];
-				if(_sym!=currentSymbol && _sym!==undefined){
-
-					trackedCells.push({'cell':$('#'+newId), 'id':newId});
-				}
-				else if(counter==0)
-					break;
-
-				if(_sym==currentSymbol && _sym!==undefined && counter!=0){
-					doPaint = true;
-					break;
-				}
-				counter++;
-			};
-
-			//if(doPaint && !self.utility.isObjectEmpty(trackedCells))
-			//	me.paint(trackedCells);
-
-			return {'isGood':doPaint, cells:trackedCells};
-		};
-
-		me.diagNorthEast = function(i, j, id){
-
-			var currentSymbol = self.move;
-			var counter = 0;
-			var doPaint = false;
-			var trackedCells = [];
-
-			while(i > 0 && j<10){
-
-				var newId = 'col' + --i + ++j;
-
-				var _sym = self.grid[newId];
-				if(_sym!=currentSymbol && _sym!==undefined){
-
-					trackedCells.push({'cell':$('#'+newId), 'id':newId});
-				}
-				else if(counter==0)
-					break;
-
-				if(_sym==currentSymbol  && _sym!==undefined && counter!=0){
-					doPaint = true;
-					break;
-				}
-				counter++;
-			};
-
-			//if(doPaint && !self.utility.isObjectEmpty(trackedCells))
-			//	me.paint(trackedCells);
-
-			return {'isGood':doPaint, cells:trackedCells};
-		};
-
-		me.diagNorthWest = function(i, j, id){
-
-			var currentSymbol = self.move;
-			var counter = 0;
-			var doPaint = false;
-			var trackedCells = [];
-
-			while(i > 0 && j > 0){
-
-				var newId = 'col' + --i + --j;
-
-				var _sym = self.grid[newId];
-				if(_sym!=currentSymbol && _sym!==undefined){
-
-					trackedCells.push({'cell':$('#'+newId), 'id':newId});
-				}
-				else if(counter==0)
-					break;
-
-				if(_sym==currentSymbol && _sym!==undefined && counter!=0){
-					doPaint = true;
-					break;
-				}
-				counter++;
-			};
-
-			//if(doPaint && !self.utility.isObjectEmpty(trackedCells))
-			//	me.paint(trackedCells);
-
-			return {'isGood':doPaint, cells:trackedCells};
-		};
-
-		me.diagSouthEast = function(i, j, id){
-
-			var currentSymbol = self.move;
-			var counter = 0;
-			var doPaint = false;
-			var trackedCells = [];
-
-			while(i < 10 && j<10){
-
-				var newId = 'col' + ++i + ++j;
-
-				var _sym = self.grid[newId];
-				if(_sym!=currentSymbol && _sym!==undefined){
-
-					trackedCells.push({'cell':$('#'+newId), 'id':newId});
-				}
-				else if(counter==0)
-					break;
-
-				if(_sym==currentSymbol && _sym!==undefined && counter!=0){
-					doPaint = true;
-					break;
-				}
-				counter++;
-
-			};
-
-			//if(doPaint && !self.utility.isObjectEmpty(trackedCells))
-			//	me.paint(trackedCells);
-
-			return {'isGood':doPaint, cells:trackedCells};
-		};
-
-		me.diagSouthWest = function(i, j, id){
-
-			var currentSymbol = self.move;
-			var counter = 0;
-			var doPaint = false;
-			var trackedCells = [];
-
-			while(i < 10 && j > 0){
-
-				var newId = 'col' + ++i + --j;
-
-				var _sym = self.grid[newId];
-				if(_sym!=currentSymbol && _sym!==undefined){
-
-					trackedCells.push({'cell':$('#'+newId), 'id':newId});
-				}
-				else if(counter==0)
-					break;
-
-				if(_sym==currentSymbol && _sym!==undefined && counter!=0){
-					doPaint = true;
-					break;
-				}
-
-				counter++;
-			};
-
-			//if(doPaint && !self.utility.isObjectEmpty(trackedCells))
-			//	me.paint(trackedCells);
-
-			return {'isGood':doPaint, cells:trackedCells};
+		  return resultSet;
 		};
 
 		me.noNewMoves = function(){
 
-			var noMovesLeft = false;
-
 			//see if no empty cell left
 			for (var i = 0; i < self.allCells.length; i++) {
-
-						if(!$(self.allCells[i]).data('marked')){
-							 noMovesLeft = false;
-							 break;
-						};
-
-						noMovesLeft = true;
+					if(!$(self.allCells[i]).data('marked')){return false;};
 			}
 
 			//since there are empty cells available, see if no valid move left for the current player
-			if(!noMovesLeft){
-
 				var emptyCells = self.allCells.filter(function(){ return !$(this).data('marked')});
 				for (var i = 0; i < emptyCells.length; i++) {
 
-						var isGood = self.evaluate(emptyCells[i]);
-						if(isGood){ noMovesLeft = false; break;}
-						noMovesLeft = true;
+						if(self.evaluate($(emptyCells[i]))){ return false;}
 				};
-			};
-			return noMovesLeft;
+
+			//reached this far...there must be no valid move left
+			return true;
 		};
 
 		me.declareWinner = function(e){
 
 				var msg = [(self.score.p1 > self.score.p2)?'You':'CPU',' won!'].join('');
-				me.notification.success(msg, 10000);
+				self.notification.success(msg, 10000);
 		};
 	};
 
@@ -754,9 +460,6 @@ function utility(){
 	function delayRoutines(){
 
 		var that = this;
-
-
-
 	};
 };
 
